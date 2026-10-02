@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Party Map</title>
+<style>
+:root{--ink:#1d2a2f;--paper:#e9e4d4;--panel:#243238;--text:#eef1e8;--muted:#9fb0a8;--accent:#f2c14e}
+*{box-sizing:border-box}
+body{margin:0;font-family:Trebuchet MS,Verdana,sans-serif;background:var(--ink);color:var(--text);display:flex;height:100vh;height:100dvh}
+#stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:8px}
+#mapname{font-weight:bold;letter-spacing:.04em}
+canvas{max-width:100%;max-height:calc(100% - 30px);aspect-ratio:10/7;border:3px solid var(--paper);border-radius:6px;cursor:crosshair}
+aside{width:350px;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+h2{margin:0 0 6px;font-size:15px}
+#players div{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px}
+#players i{width:12px;height:12px;border-radius:50%;flex:none}
+#players small{margin-left:auto;color:var(--muted)}
+#panel{background:#1b262b;border-radius:6px;padding:12px;min-height:120px;font-size:14px;line-height:1.45}
+#panel .desc{color:var(--muted);font-style:italic;font-size:13px;margin:2px 0 10px}
+#panel button{margin:4px 0 0;width:100%;text-align:left;background:var(--paper);color:var(--ink);border:0;border-radius:4px;padding:9px;cursor:pointer;font:inherit}
+#panel button:hover{background:#fff}
+button:focus-visible{outline:3px solid var(--accent)}
+#bag{font-size:13px;color:var(--accent)}
+#log{font-size:13px;color:var(--muted);flex:1;min-height:80px;overflow-y:auto}
+#log p{margin:0 0 4px}
+#join{position:fixed;inset:0;background:rgba(20,30,34,.92);display:flex;align-items:center;justify-content:center;z-index:5}
+#join form{background:var(--panel);padding:24px;border-radius:8px;display:flex;flex-direction:column;gap:10px;width:280px}
+#join input,#join button{font:inherit;padding:10px;border-radius:4px;border:0}
+#join button{background:var(--accent);cursor:pointer;font-weight:bold}
+@media(max-width:760px){body{flex-direction:column}aside{width:100%;max-height:50%}}
+</style></head><body>
+<div id="stage"><div id="mapname"></div><canvas id="c" width="1000" height="700"></canvas></div>
+<aside>
+  <div><h2>Party</h2><div id="players"></div></div>
+  <div><h2>Conversation</h2><div id="panel">Click the ground to walk. Click a character or object when you are close.</div></div>
+  <div><h2>Your bag</h2><div id="bag">empty</div></div>
+  <div style="display:flex;flex-direction:column;flex:1;min-height:0"><h2>News &amp; rolls</h2><div id="log"></div></div>
+</aside>
+<div id="join"><form id="jf"><b>Join the party</b>
+  <input id="nm" maxlength="16" placeholder="Character name" autofocus required>
+  <button>Join</button><small id="err"></small></form></div>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let ws, myId, names = {}, map = null, players = {}, shown = {};
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const addLog = t => $('log').insertAdjacentHTML('afterbegin', `<p>${esc(t)}</p>`);
+const tx = o => ws.send(JSON.stringify(o));
+
+$('jf').onsubmit = e => {
+  e.preventDefault();
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => tx({ t: 'join', name: $('nm').value });
+  ws.onmessage = ev => handle(JSON.parse(ev.data));
+  ws.onclose = () => addLog('Disconnected. Refresh to rejoin.');
+};
+
+function handle(m) {
+  if (m.t === 'full') $('err').textContent = 'Party is full (6/6).';
+  if (m.t === 'welcome') { myId = m.id; names = m.names; $('join').remove(); requestAnimationFrame(draw); }
+  if (m.t === 'map') { map = m.map; shown = {}; $('mapname').textContent = map.name; endChat(); }
+  if (m.t === 'state') { players = Object.fromEntries(m.players.map(p => [p.id, p])); renderPlayers(); }
+  if (m.t === 'dialogue') {
+    $('panel').innerHTML = `<b>${esc(m.npc.name)}</b><div class="desc">${esc(m.npc.desc)}</div><p>${esc(m.text)}</p>` +
+      m.options.map((o, i) => `<button data-i="${i}">${esc(o.label)}</button>`).join('');
+    $('panel').querySelectorAll('button').forEach(b => b.onclick = () => tx({ t: 'pick', i: +b.dataset.i }));
+  }
+  if (m.t === 'end') endChat();
+  if (m.t === 'inv') $('bag').innerHTML = Object.entries(m.inv).map(([k, v]) => esc(k) + (v > 1 ? ' ×' + v : '')).join('<br>') || 'empty';
+  if (m.t === 'log' || m.t === 'notice') addLog(m.text);
+}
+const endChat = () => $('panel').textContent = 'Click the ground to walk. Click a character or object when you are close.';
+function renderPlayers() {
+  $('players').innerHTML = Object.values(players).map(p =>
+    `<div><i style="background:${p.color}"></i><span>${esc(p.name)}${p.id === myId ? ' (you)' : ''}</span><small>${esc(names[p.map] || '')}</small></div>`).join('');
+}
+
+cv.onclick = e => {
+  if (!map) return;
+  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * 1000 / r.width, y = (e.clientY - r.top) * 700 / r.height;
+  const hit = map.npcs.find(n => Math.hypot(n.x - x, n.y - y) < 26);
+  tx(hit ? { t: 'talk', id: hit.id } : { t: 'move', x, y });
+};
+
+function draw() {
+  if (map) {
+    ctx.fillStyle = map.bg; ctx.fillRect(0, 0, 1000, 700);
+    ctx.font = '13px Trebuchet MS'; ctx.textAlign = 'center';
+    for (const d of map.deco) {
+      ctx.fillStyle = d.color; ctx.fillRect(d.x, d.y, d.w, d.h);
+      if (d.label) { ctx.fillStyle = '#fff'; ctx.fillText(d.label, d.x + d.w / 2, d.y + d.h / 2 + 4); }
+    }
+    for (const n of map.npcs) {
+      ctx.fillStyle = n.color; ctx.strokeStyle = '#1d2a2f'; ctx.lineWidth = 3;
+      if (n.kind === 'object') { ctx.fillRect(n.x - 12, n.y - 12, 24, 24); ctx.strokeRect(n.x - 12, n.y - 12, 24, 24); }
+      else { ctx.beginPath(); ctx.arc(n.x, n.y, 15, 0, 7); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#1d2a2f'; ctx.fillText(n.name, n.x, n.y - 22);
+    }
+    const here = Object.values(players).filter(p => p.map === map.key);
+    for (const p of here) {
+      const s = shown[p.id] || (shown[p.id] = { x: p.x, y: p.y });
+      s.x += (p.x - s.x) * 0.3; s.y += (p.y - s.y) * 0.3;
+      ctx.fillStyle = p.color; ctx.strokeStyle = p.id === myId ? '#fff' : '#1d2a2f'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 11, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1d2a2f'; ctx.fillText(p.name, s.x, s.y - 18);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+</script></body></html>
