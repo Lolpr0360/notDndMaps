@@ -7,37 +7,61 @@ const LEAVE = { label: 'Walk away', next: null };
 
 module.exports = {
   airport: {
-    name: 'Schiphol Airport', bg: '#c9d3d8', spawn: { x: 500, y: 620 },
-    deco: [
-      { x: 60, y: 60, w: 260, h: 110, color: '#8da2ad', label: 'Departure Lounge' },
-      { x: 400, y: 60, w: 200, h: 70, color: '#a9b8c0', label: 'Lost & Found Lockers' },
-      { x: 680, y: 60, w: 240, h: 110, color: '#b79ab0', label: 'Duty-Free' },
-      { x: 330, y: 300, w: 340, h: 60, color: '#4b5b63', label: 'Baggage Carousel' },
+    name: 'Schiphol Airport', style: 'iso', bg: '#0f181d', spawn: { x: 1200, y: 780 }, size: { w: 2400, h: 1600 }, speed: 240,
+    // floors = walkable areas (everything else is closed off). solids = furniture you walk around.
+    floors: [
+      { x: 700, y: 560, w: 1000, h: 520, color: '#cfd8dc', label: 'DEPARTURES HALL' },
+      { x: 900, y: 1080, w: 600, h: 420, color: '#c3ccd1', label: 'ARRIVALS & BAGGAGE' },
+      { x: 200, y: 700, w: 500, h: 200, color: '#c8d0c4', path: true, label: 'LOST & FOUND WING' },
+      { x: 1700, y: 700, w: 250, h: 200, color: '#c9cfd3', path: true },
+      { x: 1950, y: 560, w: 300, h: 520, color: '#dccfd8', label: 'DUTY-FREE' },
+      { x: 1500, y: 1250, w: 700, h: 200, color: '#c9cfd3', path: true, label: 'TO THE TRAIN STATION' },
+      { x: 2000, y: 1200, w: 300, h: 300, color: '#d6d1b8', label: 'TRAIN PLATFORM' },
+    ],
+    solids: [
+      { x: 850, y: 620, w: 200, h: 30, z: 22, color: '#8a6a4a' }, { x: 1250, y: 620, w: 200, h: 30, z: 22, color: '#8a6a4a' },
+      { x: 850, y: 940, w: 200, h: 30, z: 22, color: '#8a6a4a' }, { x: 1250, y: 940, w: 200, h: 30, z: 22, color: '#8a6a4a' },
+      { x: 1170, y: 690, w: 30, h: 30, z: 80, color: '#2d3b44', label: 'FLIGHTS' },
+      { x: 1000, y: 1250, w: 350, h: 80, z: 12, color: '#37444c', label: 'Baggage Carousel' },
+      { x: 150, y: 650, w: 240, h: 40, z: 70, color: '#7f8f99', label: 'Lost & Found Lockers' },
+      { x: 2020, y: 600, w: 200, h: 40, z: 60, color: '#e9b44c', label: 'DUTY FREE' },
+    ],
+    deco: [ // closed-off scenery: tarmac, runway, planes, glass wall, security
+      { kind: 'ground', x: 0, y: 0, w: 2400, h: 460, color: '#4a5358' },
+      { kind: 'ground', x: 0, y: 300, w: 2400, h: 70, color: '#3c4448', dash: true },
+      { kind: 'slab', x: 0, y: 460, w: 2400, h: 1140, color: '#26343c' },
+      { kind: 'plane', x: 300, y: 130, len: 320 }, { kind: 'plane', x: 1550, y: 110, len: 320 }, { kind: 'plane', x: 900, y: 305, len: 320 },
+      { kind: 'wall', x: 0, y: 455, w: 2400, h: 10, z: 100, color: '#9ed3e6' },
+      { kind: 'box', x: 950, y: 500, w: 500, h: 58, z: 30, color: '#5b6b75', label: 'SECURITY: GATES CLOSED' },
+      { kind: 'box', x: 990, y: 515, w: 50, h: 28, z: 56, color: '#8fa1ac' }, { kind: 'box', x: 1100, y: 515, w: 50, h: 28, z: 56, color: '#8fa1ac' },
+      { kind: 'box', x: 1210, y: 515, w: 50, h: 28, z: 56, color: '#8fa1ac' }, { kind: 'box', x: 1320, y: 515, w: 50, h: 28, z: 56, color: '#8fa1ac' },
     ],
     npcs: [
-      { id: 'gart', name: 'Gart', kind: 'npc', color: '#39ff88', x: 500, y: 480,
+      { id: 'gart', name: 'Suspicious Sim Card Guy', kind: 'npc', color: '#39ff88', x: 1800, y: 1350,
         desc: 'Oversized neon tracksuit, sunglasses indoors, badge reading "Telecom Representative". Unblinking, slightly off-rhythm posture. Speaks very literally.',
         tree: {
           start: { text: '"Greetings, biological locals. Do you require hyper-band spectrum connectivity for your mobile pocket plates?"', options: [
+            { label: 'Who are you with?', next: 'brand' }, { label: 'What is your name?', next: 'name' }, { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
+          name: { text: '"My designation is GART. All capital letters. It is a very normal name for a biological local."', options: [
             { label: 'Who are you with?', next: 'brand' }, { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
           brand: { text: '"We are Network Alpha-Seven. Apologies, I mean \'Vodafone Extra\'. Unlimited roaming across local dimensions. Apologies, local provinces."', options: [
-            { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
+            { label: 'What is your name?', next: 'name' }, { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
           price: { text: '"Omni-SIMs. Five dollars each, or equivalent. This price is unnervingly low. Apologies, \'very competitive\'."', options: [
             { label: 'Buy an Omni-SIM', next: 'bought' }, { label: 'Hesitate', next: 'hook' }] },
           hook: { text: '"Failure to insert this glass-substrate chip into your communicator will result in total loss of signal during impending... localized weather anomalies."', options: [
             { label: 'Fine, buy one', next: 'bought' }, { label: 'Still refuse', next: 'refuse' }] },
-          refuse: { text: 'Gart does not blink. "Refusal noted. Recalculating pitch."', options: [{ label: 'Hear the pitch again', next: 'price' }] },
-          bought: { text: 'You insert the SIM. Your phone shows 9G and a silent system app called NEXUS_LINK running in the background. Gart walks backwards, away, and vanishes behind a baggage carousel.',
-            fx: { find: 'Omni-SIM', log: '{n} bought an Omni-SIM from Gart.' }, options: [{ label: 'Blink twice', next: null }] },
+          refuse: { text: 'He does not blink. "Refusal noted. Recalculating pitch."', options: [{ label: 'Hear the pitch again', next: 'price' }] },
+          bought: { text: 'You insert the SIM. Your phone shows 9G and a silent system app called NEXUS_LINK running in the background. He walks backwards, away, and vanishes behind a baggage carousel.',
+            fx: { find: 'Omni-SIM', log: '{n} bought an Omni-SIM from the Suspicious Sim Card Guy.' }, options: [{ label: 'Blink twice', next: null }] },
         } },
-      { id: 'inspector', name: 'Baggage Inspector', kind: 'npc', color: '#e4572e', x: 250, y: 400,
+      { id: 'inspector', name: 'Baggage Inspector', kind: 'npc', color: '#e4572e', x: 420, y: 800,
         desc: 'Over-zealous official with a clipboard and a very serious moustache.',
         tree: {
           start: { text: '"Your bag contains a class-four biohazard."', options: [{ label: 'It\'s a cheese sandwich.', next: 'cheese' }, { label: 'Open the bag', next: 'open' }, LEAVE] },
           cheese: { text: '"That smell is not a sandwich smell. That is a smell with intentions."', options: [{ label: 'Open the bag', next: 'open' }, LEAVE] },
           open: { text: 'He sniffs for a long time. "Move along. I will be watching the cheese."', options: [{ label: 'Move along', next: null }] },
         } },
-      { id: 'perfume', name: 'Duty-Free Tester', kind: 'npc', color: '#f078b0', x: 800, y: 230,
+      { id: 'perfume', name: 'Duty-Free Tester', kind: 'npc', color: '#f078b0', x: 2080, y: 720,
         desc: 'Glitching tester handing out free perfume samples that smell like whatever you want most.',
         tree: {
           start: { text: '"Free sample! Smells like what you desire most!"', options: [
@@ -45,7 +69,7 @@ module.exports = {
           good: { text: 'It smells exactly like your heart\'s desire. You stand there a moment too long.', options: [{ label: 'Snap out of it', next: null }] },
           bad: { text: 'Burnt toast. Unmistakably burnt toast.', options: [{ label: 'Cough politely', next: null }] },
         } },
-      { id: 'locker', name: 'Locker #137', kind: 'object', color: '#9aa7ad', x: 500, y: 170,
+      { id: 'locker', name: 'Locker #137', kind: 'object', color: '#9aa7ad', x: 260, y: 720,
         desc: 'A battered locker in the Lost & Found wall. Slightly warm to the touch.',
         tree: {
           start: { text: 'The lock looks old, but something about it feels off.', options: [
@@ -53,13 +77,13 @@ module.exports = {
           win: { text: 'Inside is a sleek, unlabeled briefcase holding neon-tinted sunglasses. Through them, faint energy signatures shimmer.', fx: { find: 'Neon-Tinted Sunglasses', once: true, log: '{n} found something in Locker #137.' }, options: [{ label: 'Close the locker', next: null }] },
           fail: { text: 'Nothing but lost umbrellas.', options: [{ label: 'Try again', next: 'start' }, LEAVE] },
         } },
-      { id: 'bench', name: 'Departure Lounge Bench', kind: 'object', color: '#8da2ad', x: 190, y: 220,
+      { id: 'bench', name: 'Departure Lounge Bench', kind: 'object', color: '#8da2ad', x: 950, y: 690,
         desc: 'A long bench. Something dented glints underneath.',
         tree: {
           start: { text: 'A forgotten souvenir tin sits under the bench.', options: [{ label: 'Open the tin', next: 'tin' }, LEAVE] },
           tin: { text: 'Unbreakable Stroopwafels: indestructible travel snacks. Good as emergency door wedges.', fx: { find: 'Unbreakable Stroopwafels', once: true, log: '{n} found a souvenir tin.' }, options: [{ label: 'Pocket them', next: null }] },
         } },
-      { id: 'train1', name: 'Train Conductor', kind: 'npc', color: '#ffd24a', x: 880, y: 600,
+      { id: 'train1', name: 'Train Conductor', kind: 'npc', color: '#ffd24a', x: 2150, y: 1350,
         desc: 'Calm conductor in a bright vest. Moves between worlds in thirty-minute increments.',
         tree: { start: { text: '"Next train: Amsterdam Centraal, then the canal district. All aboard."', options: [{ label: 'Take the train to De Ruisende Gracht', travel: 'canal' }, LEAVE] } } },
     ],
