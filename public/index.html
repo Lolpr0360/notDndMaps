@@ -135,6 +135,7 @@ function drawIso() {
   ctx.fillStyle = map.bg; ctx.fillRect(0, 0, 1000, 700); ctx.textAlign = 'center';
   for (const d of map.deco) {
     if (d.kind === 'slab') slab(d);
+    if (d.kind === 'water') flat(d.x, d.y, d.w, d.h, d.color, 'rgba(255,255,255,.3)');
     if (d.kind === 'ground') { flat(d.x, d.y, d.w, d.h, d.color); if (d.dash) dashLine(P(d.x, d.y + d.h / 2), P(d.x + d.w, d.y + d.h / 2), '#e8e4c8', 3, [18, 16]); }
   }
   for (const f of map.floors) {
@@ -146,6 +147,10 @@ function drawIso() {
   const E = []; hits = [];
   const bx = (o, z, c, al, label) => E.push({ x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.h, draw: () => { box(o.x, o.y, o.w, o.h, z, c, al); if (label) lbl(label, ...P(o.x + o.w / 2, o.y + o.h / 2, z + 10)); } });
   for (const s of map.solids) bx(s, s.z, s.color, 1, s.label);
+  for (const f of map.floors) if (f.bridge) { // low rails along the walking direction
+    const r = f.bridge === 'x' ? [{ x: f.x, y: f.y, w: f.w, h: 8 }, { x: f.x, y: f.y + f.h - 8, w: f.w, h: 8 }] : [{ x: f.x, y: f.y, w: 8, h: f.h }, { x: f.x + f.w - 8, y: f.y, w: 8, h: f.h }];
+    r.forEach(o => bx(o, 12, '#8a8f94', 1));
+  }
   for (const d of map.deco) {
     if (d.kind === 'box') bx(d, d.z, d.color, 1, d.label);
     if (d.kind === 'wall') bx(d, d.z, d.color, .35);
