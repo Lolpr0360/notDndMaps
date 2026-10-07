@@ -14,6 +14,13 @@ const houses = (x, y, w, h) => { const out = []; let cx = x;
   return out; };
 
 
+// Placeholder-friendly interactable: a description plus a "look closer" step (replace the text when you have details).
+const look = (text, closer) => ({
+  start: { text, options: [{ label: 'Look closer', next: 'closer' }, LEAVE] },
+  closer: { text: closer || 'Nothing obvious yet. (Placeholder: tell me what the players should find here.)', options: [{ label: 'Step back', next: null }] },
+});
+const trees = pts => pts.map(([x, y]) => ({ kind: 'box', x, y, w: 34, h: 34, z: 55 + (rnd() * 25 | 0), color: '#4f8a4a' }));
+
 module.exports = {
   airport: {
     name: 'Schiphol Airport', style: 'iso', bg: '#0f181d', spawn: { x: 1200, y: 780 }, size: { w: 2400, h: 1600 }, speed: 240,
@@ -184,17 +191,65 @@ module.exports = {
       { id: 'train2', name: 'Station Attendant', kind: 'npc', color: '#ffd24a', x: 520, y: 280,
         desc: 'Attendant at the canal-side station, holding a timetable that looks slightly wrong.',
         tree: { start: { text: '"Where to?"', options: [
-          { label: 'Back to Schiphol Airport', travel: 'airport' }, { label: 'On to Map 3', travel: 'city' }, LEAVE] } } },
+          { label: 'Back to Schiphol Airport', travel: 'airport' }, { label: 'Take the bus to the Polders (Map 3)', travel: 'city' }, LEAVE] } } },
     ],
   },
 
   city: {
-    name: 'Map 3 (placeholder)', bg: '#c4b8a0', spawn: { x: 500, y: 620 },
-    deco: [{ x: 380, y: 260, w: 240, h: 90, color: '#7d6f5a', label: 'To be designed' }],
+    name: 'The Polders (Map 3)', style: 'iso', bg: '#0f181d', spawn: { x: 330, y: 1000 }, size: { w: 2800, h: 2000 }, speed: 260,
+    // Dirt roads, yards and lawns are walkable. Tulip fields, buildings, windmills and water are closed off.
+    floors: [
+      { x: 1220, y: 920, w: 180, h: 180, color: '#9a9a94', label: 'CROSSROADS' },
+      { x: 150, y: 940, w: 1070, h: 120, color: '#c9b68c' }, { x: 1400, y: 940, w: 1250, h: 120, color: '#c9b68c' },
+      { x: 1240, y: 440, w: 120, h: 480, color: '#c9b68c' }, { x: 1240, y: 440, w: 1270, h: 120, color: '#c9b68c' },
+      { x: 1240, y: 1100, w: 120, h: 460, color: '#c9b68c' }, { x: 150, y: 1500, w: 1100, h: 120, color: '#c9b68c' },
+      { x: 300, y: 1620, w: 120, h: 240, color: '#8a6a4a', bridge: 'y' }, { x: 150, y: 1860, w: 420, h: 120, color: '#a9cf8f', label: 'SOUTH BANK' },
+      { x: 1290, y: 1560, w: 60, h: 140, color: '#8a6a4a' },
+      { x: 250, y: 620, w: 500, h: 320, color: '#b8a98c', label: 'EQUIPMENT YARD' },
+      { x: 700, y: 1060, w: 450, h: 340, color: '#9cc486' }, { x: 1360, y: 1100, w: 400, h: 400, color: '#a9cf8f' },
+      { x: 1900, y: 200, w: 260, h: 240, color: '#a9cf8f' }, { x: 2300, y: 300, w: 360, h: 140, color: '#b8a98c' },
+    ],
+    solids: [
+      { x: 350, y: 760, w: 90, h: 50, z: 30, color: '#4f6a4a' }, { x: 620, y: 800, w: 70, h: 30, z: 20, color: '#8a3b2c' },
+      { kind: 'windmill', x: 1980, y: 260, w: 100, h: 100, z: 190, color: '#8a6a4a', label: 'Historic Windmill' },
+      { x: 880, y: 1200, w: 110, h: 70, z: 50, color: '#b5482f', label: 'Broken Tractor' },
+    ],
+    deco: [
+      { kind: 'slab', x: 0, y: 0, w: 2800, h: 2000, color: '#86b567' },
+      { kind: 'water', x: 0, y: 1640, w: 2800, h: 220, color: '#6f9fb6' },
+      { kind: 'field', x: 1400, y: 560, w: 800, h: 300 }, { kind: 'field', x: 2250, y: 560, w: 400, h: 300 },
+      { kind: 'field', x: 300, y: 130, w: 800, h: 260 }, { kind: 'field', x: 150, y: 1100, w: 520, h: 330 },
+      { kind: 'field', x: 1800, y: 1100, w: 700, h: 360, tone: 'crop' },
+      { kind: 'box', x: 300, y: 420, w: 420, h: 190, z: 90, color: '#6b4e3a', label: 'Equipment Depot' },
+      { kind: 'box', x: 2300, y: 120, w: 360, h: 170, z: 90, color: '#4d5a45', label: 'Barn?' },
+      { kind: 'box', x: 20, y: 945, w: 120, h: 90, z: 60, color: '#2b5fa8', label: 'Bus from Amsterdam' },
+      { kind: 'box', x: 1380, y: 1650, w: 110, h: 36, z: 10, color: '#8c6a5d', label: 'Rowboat' },
+      { kind: 'windmill', x: 300, y: 40, w: 60, h: 60, z: 140, color: '#8a6a4a' }, { kind: 'windmill', x: 900, y: 50, w: 60, h: 60, z: 140, color: '#8a6a4a' },
+      { kind: 'windmill', x: 1500, y: 40, w: 60, h: 60, z: 140, color: '#8a6a4a' }, { kind: 'windmill', x: 2150, y: 30, w: 60, h: 60, z: 140, color: '#8a6a4a' },
+      ...trees([[200, 60], [250, 90], [1100, 70], [1160, 100], [1700, 70], [2750, 100], [2720, 220], [2740, 700], [2720, 1100], [80, 500], [60, 720], [80, 1300], [60, 1450], [1000, 1430], [1800, 1550]]),
+    ],
     npcs: [
-      { id: 'train3', name: 'Station Attendant', kind: 'npc', color: '#ffd24a', x: 500, y: 560,
-        desc: 'Placeholder. Send me Map 3 details and this fills up.',
-        tree: { start: { text: '"This area is under construction. Back to the canal?"', options: [{ label: 'Back to De Ruisende Gracht', travel: 'canal' }, LEAVE] } } },
+      { id: 'bus', name: 'Bus Driver', kind: 'npc', color: '#ffd24a', x: 200, y: 1000,
+        desc: 'Leans against a dusty regional bus that does not appear on any timetable.',
+        tree: { start: { text: '"Last stop. Mind the tulips. Heading back to town?"', options: [{ label: 'Back to De Ruisende Gracht', travel: 'canal' }, LEAVE] } } },
+      { id: 'depot', name: 'Equipment Depot', x: 520, y: 670, kind: 'object', color: '#c9a24a',
+        desc: 'A big timber depot with a rolled-down shutter. Rusty farm tools lean against the walls.',
+        tree: look('A big timber depot, its shutter rolled down. Rusty tools and a hay wagon sit in the yard.') },
+      { id: 'tractor', name: 'Broken Tractor', x: 940, y: 1300, kind: 'object', color: '#c9a24a',
+        desc: 'A rusted red tractor stuck in an oil-stained patch of grass.',
+        tree: look('A rusted red tractor, long dead. Oil has soaked the grass around it.') },
+      { id: 'dock', name: 'Rustic Dock', x: 1320, y: 1650, kind: 'object', color: '#c9a24a',
+        desc: 'A weathered wooden dock with a lantern post and a small rowboat tied up.',
+        tree: look('A weathered dock. A lantern swings from its post and a rowboat bobs below.') },
+      { id: 'windmill', name: 'Historic Windmill', x: 2030, y: 400, kind: 'object', color: '#c9a24a',
+        desc: 'An old wooden windmill, its sails turning slowly.',
+        tree: look('The windmill creaks as its sails turn. A small door sits at its base.') },
+      { id: 'barn', name: 'Barn?', x: 2480, y: 340, kind: 'object', color: '#c9a24a',
+        desc: 'A moss-covered building that looks like a barn. Mostly.',
+        tree: look('A moss-covered barn with its doors firmly shut. Something about it does not quite add up.') },
+      { id: 'tulips', name: 'Tulip Fields', x: 1700, y: 520, kind: 'object', color: '#c9a24a',
+        desc: 'Endless stripes of purple, pink and blue tulips.',
+        tree: look('Rows of purple, pink and blue tulips run all the way to the horizon.') },
     ],
   },
 };
