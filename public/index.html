@@ -93,6 +93,21 @@ function poly(pts, fill, stroke) {
   ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
 }
 const flat = (x, y, w, h, c, st) => poly([P(x, y), P(x + w, y), P(x + w, y + h), P(x, y + h)], c, st);
+const TONES = { tulip: ['#8e44ad', '#c0399f', '#3b8ec9', '#6a3fb5', '#d45fb0'], crop: ['#7fb85a', '#8cc464', '#74ad52'] };
+function field(d) { // flat striped crop field
+  const pal = TONES[d.tone || 'tulip'], alongX = d.w >= d.h, n = Math.ceil((alongX ? d.h : d.w) / 28);
+  flat(d.x, d.y, d.w, d.h, pal[0]);
+  for (let i = 0; i < n; i++) { const o = i * 28, t = Math.min(28, (alongX ? d.h : d.w) - o);
+    alongX ? flat(d.x, d.y + o, d.w, t, pal[i % pal.length]) : flat(d.x + o, d.y, t, d.h, pal[i % pal.length]); }
+}
+function windmill(d) { // tower + slowly turning sails
+  box(d.x, d.y, d.w, d.h, d.z, d.color);
+  const [hx, hy] = P(d.x + d.w / 2, d.y + d.h, d.z - 15), L = Math.max(40, d.w * .9), t = Date.now() / 2500;
+  ctx.strokeStyle = '#efe6cf'; ctx.lineWidth = 5;
+  for (let k = 0; k < 4; k++) { const a = t + k * Math.PI / 2; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(a) * L, hy + Math.sin(a) * L); ctx.stroke(); }
+  ctx.fillStyle = '#5a4634'; ctx.beginPath(); ctx.arc(hx, hy, 6, 0, 7); ctx.fill();
+  if (d.label) lbl(d.label, ...P(d.x + d.w / 2, d.y + d.h / 2, d.z + 45));
+}
 function box(x, y, w, h, z, c, al = 1) {
   ctx.globalAlpha = al;
   poly([P(x, y + h), P(x + w, y + h), P(x + w, y + h, z), P(x, y + h, z)], shade(c, .75));
@@ -105,9 +120,20 @@ function slab(d, t = 34) {
   poly([P(d.x, d.y + d.h), P(d.x + d.w, d.y + d.h), P(d.x + d.w, d.y + d.h, -t), P(d.x, d.y + d.h, -t)], shade(d.color, .6));
   poly([P(d.x + d.w, d.y), P(d.x + d.w, d.y + d.h), P(d.x + d.w, d.y + d.h, -t), P(d.x + d.w, d.y, -t)], shade(d.color, .45));
 }
-function lbl(t, x, y, size = 12) {
+let labels = null; // while set, labels are queued and drawn last, on top of every building
+function drawLbl(t, x, y, size) {
   ctx.font = `bold ${size}px Trebuchet MS`; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,30,34,.85)'; ctx.strokeText(t, x, y);
   ctx.fillStyle = '#fff'; ctx.fillText(t, x, y);
+}
+function lbl(t, x, y, size = 12) { labels ? labels.push({ t, x, y, size }) : drawLbl(t, x, y, size); }
+function flushLabels(L) { // draw queued labels, nudging upward so they don't overlap each other
+  const placed = []; L.sort((a, b) => a.y - b.y);
+  for (const l of L) {
+    ctx.font = `bold ${l.size}px Trebuchet MS`; const w = ctx.measureText(l.t).width + 6; let y = l.y;
+    if (l.x < -w || l.x > 1000 + w || y < -20 || y > 720) continue;
+    for (let i = 0; i < 6 && placed.some(p => Math.abs(p.x - l.x) < (p.w + w) / 2 && Math.abs(p.y - y) < 14); i++) y -= 14;
+    placed.push({ x: l.x, y, w }); drawLbl(l.t, l.x, y, l.size);
+  }
 }
 function dashLine(a, b, c, w, dash) { ctx.setLineDash(dash); ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]); }
 function person(x, y, col, name, me) {
@@ -135,6 +161,7 @@ function drawIso() {
   ctx.fillStyle = map.bg; ctx.fillRect(0, 0, 1000, 700); ctx.textAlign = 'center';
   for (const d of map.deco) {
     if (d.kind === 'slab') slab(d);
+    if (d.kind === 'field') field(d);
     if (d.kind === 'water') flat(d.x, d.y, d.w, d.h, d.color, 'rgba(255,255,255,.3)');
     if (d.kind === 'ground') { flat(d.x, d.y, d.w, d.h, d.color); if (d.dash) dashLine(P(d.x, d.y + d.h / 2), P(d.x + d.w, d.y + d.h / 2), '#e8e4c8', 3, [18, 16]); }
   }
@@ -146,7 +173,7 @@ function drawIso() {
 
   const E = []; hits = [];
   const bx = (o, z, c, al, label) => E.push({ x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.h, draw: () => { box(o.x, o.y, o.w, o.h, z, c, al); if (label) lbl(label, ...P(o.x + o.w / 2, o.y + o.h / 2, z + 10)); } });
-  for (const s of map.solids) bx(s, s.z, s.color, 1, s.label);
+  for (const s of map.solids) s.kind === 'windmill' ? E.push({ x0: s.x, y0: s.y, x1: s.x + s.w, y1: s.y + s.h, draw: () => windmill(s) }) : bx(s, s.z, s.color, 1, s.label);
   for (const f of map.floors) if (f.bridge) { // low rails along the walking direction
     const r = f.bridge === 'x' ? [{ x: f.x, y: f.y, w: f.w, h: 8 }, { x: f.x, y: f.y + f.h - 8, w: f.w, h: 8 }] : [{ x: f.x, y: f.y, w: 8, h: f.h }, { x: f.x + f.w - 8, y: f.y, w: 8, h: f.h }];
     r.forEach(o => bx(o, 12, '#8a8f94', 1));
@@ -154,6 +181,7 @@ function drawIso() {
   for (const d of map.deco) {
     if (d.kind === 'box') bx(d, d.z, d.color, 1, d.label);
     if (d.kind === 'wall') bx(d, d.z, d.color, .35);
+    if (d.kind === 'windmill') E.push({ x0: d.x, y0: d.y, x1: d.x + d.w, y1: d.y + d.h, draw: () => windmill(d) });
     if (d.kind === 'plane') E.push({ x0: d.x, y0: d.y - 100, x1: d.x + d.len, y1: d.y + 136, draw: () => plane(d) });
   }
   for (const n of map.npcs) E.push({ x0: n.x, x1: n.x, y0: n.y, y1: n.y, draw: () => {
@@ -161,7 +189,8 @@ function drawIso() {
     if (n.kind === 'object') { box(n.x - 12, n.y - 12, 24, 24, 14, n.color); lbl(n.name, ...P(n.x, n.y, 28)); } else person(n.x, n.y, n.color, n.name, false);
   } });
   for (const p of Object.values(players)) if (p.map === map.key) { const s = shown[p.id]; E.push({ x0: s.x, x1: s.x, y0: s.y, y1: s.y, draw: () => person(s.x, s.y, p.color, p.name, p.id === myId) }); }
-  E.sort(cmp); E.forEach(e => e.draw());
+  labels = []; E.sort(cmp); E.forEach(e => e.draw());
+  const L = labels; labels = null; flushLabels(L);
 }
 
 function drawFlat() {
