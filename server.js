@@ -39,6 +39,10 @@ wss.on('connection', ws => {
     send(ws, { t: 'map', map: pubMap(k) });
   };
   const show = (npc, node) => { // enter a dialogue node, apply its effects, send it
+    if (!npc.tree) { // choice-only NPC: the narrator handles what happens next
+      me.conv = { id: npc.id, node: 'ask' };
+      return send(ws, { t: 'dialogue', npc: { name: npc.name, desc: npc.desc }, text: 'What do you do?', options: npc.options.map(label => ({ label })) });
+    }
     const n = npc.tree[node]; me.conv = { id: npc.id, node }; let extra = '';
     if (n.fx) {
       if (n.fx.find) {
@@ -74,6 +78,13 @@ wss.on('connection', ws => {
     }
     if (m.t === 'pick' && me.conv) {
       const npc = MAPS[me.map].npcs.find(n => n.id === me.conv.id);
+      if (!npc.tree) {
+        if (me.conv.node === 'done') { me.conv = null; return send(ws, { t: 'end' }); }
+        const label = npc.options[m.i]; if (!label) return;
+        log(`${me.name} -> ${npc.name}: ${label}`);
+        me.conv.node = 'done';
+        return send(ws, { t: 'dialogue', npc: { name: npc.name, desc: npc.desc }, text: `You chose "${label}". The narrator takes it from here.`, options: [{ label: 'Close' }] });
+      }
       const o = (npc.tree[me.conv.node].options || END)[m.i];
       if (!o) return;
       if (o.travel) { log(`${me.name} left for ${MAPS[o.travel].name}.`); enterMap(o.travel); return log(`${me.name} arrived in ${MAPS[o.travel].name}.`); }
