@@ -1,9 +1,11 @@
-// ALL CONTENT LIVES HERE. Add maps/NPCs/dialogue by editing this file only.
-// Node fields:  text, options[], fx:{find,once,log}   (fx runs when the node is shown)
-// Option kinds: {label,next} | {label,next:null} (ends chat) | {label,travel:'mapKey'}
-//               {label,roll:{dc,pass,fail}} (server d20) | RPS(winNode,loseNode) (3 buttons)
-const RPS = (win, lose) => ['Rock', 'Paper', 'Scissors'].map(p => ({ label: p, rps: { pick: p, win, lose } }));
+// ALL CONTENT LIVES HERE. Add maps/NPCs by editing this file only.
+// Interactions are choices only: the narrator describes what happens off-screen.
+//   People get   Talk / (extras) / Walk Past / Ignore      -> person('Extra option', ...)
+//   Objects get  Examine / (extras) / Walk Past / Ignore   -> thing('Extra option', ...)
+// Transition NPCs (train, bus) keep a small `tree` so they can move players between maps.
 const LEAVE = { label: 'Walk away', next: null };
+const person = (...extra) => ['Talk', ...extra, 'Walk Past', 'Ignore'];
+const thing = (...extra) => ['Examine', ...extra, 'Walk Past', 'Ignore'];
 
 // Rows of townhouses for filling city blocks (deterministic, so every player sees the same city).
 const PAL = ['#9c5a43', '#b36a4a', '#7d4b3a', '#a9774f', '#8c6a5d', '#c0825a', '#6d5a52', '#5f6d78'];
@@ -14,11 +16,6 @@ const houses = (x, y, w, h) => { const out = []; let cx = x;
   return out; };
 
 
-// Placeholder-friendly interactable: a description plus a "look closer" step (replace the text when you have details).
-const look = (text, closer) => ({
-  start: { text, options: [{ label: 'Look closer', next: 'closer' }, LEAVE] },
-  closer: { text: closer || 'Nothing obvious yet. (Placeholder: tell me what the players should find here.)', options: [{ label: 'Step back', next: null }] },
-});
 const trees = pts => pts.map(([x, y]) => ({ kind: 'box', x, y, w: 34, h: 34, z: 55 + (rnd() * 25 | 0), color: '#4f8a4a' }));
 
 module.exports = {
@@ -55,50 +52,19 @@ module.exports = {
     npcs: [
       { id: 'gart', name: 'Suspicious Sim Card Guy', kind: 'npc', color: '#39ff88', x: 1800, y: 1350,
         desc: 'Oversized neon tracksuit, sunglasses indoors, badge reading "Telecom Representative". Unblinking, slightly off-rhythm posture. Speaks very literally.',
-        tree: {
-          start: { text: '"Greetings, biological locals. Do you require hyper-band spectrum connectivity for your mobile pocket plates?"', options: [
-            { label: 'Who are you with?', next: 'brand' }, { label: 'What is your name?', next: 'name' }, { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
-          name: { text: '"My designation is GART. All capital letters. It is a very normal name for a biological local."', options: [
-            { label: 'Who are you with?', next: 'brand' }, { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
-          brand: { text: '"We are Network Alpha-Seven. Apologies, I mean \'Vodafone Extra\'. Unlimited roaming across local dimensions. Apologies, local provinces."', options: [
-            { label: 'What is your name?', next: 'name' }, { label: 'How much?', next: 'price' }, { label: 'No thanks.', next: 'hook' }] },
-          price: { text: '"Omni-SIMs. Five dollars each, or equivalent. This price is unnervingly low. Apologies, \'very competitive\'."', options: [
-            { label: 'Buy an Omni-SIM', next: 'bought' }, { label: 'Hesitate', next: 'hook' }] },
-          hook: { text: '"Failure to insert this glass-substrate chip into your communicator will result in total loss of signal during impending... localized weather anomalies."', options: [
-            { label: 'Fine, buy one', next: 'bought' }, { label: 'Still refuse', next: 'refuse' }] },
-          refuse: { text: 'He does not blink. "Refusal noted. Recalculating pitch."', options: [{ label: 'Hear the pitch again', next: 'price' }] },
-          bought: { text: 'You insert the SIM. Your phone shows 9G and a silent system app called NEXUS_LINK running in the background. He walks backwards, away, and vanishes behind a baggage carousel.',
-            fx: { find: 'Omni-SIM', log: '{n} bought an Omni-SIM from the Suspicious Sim Card Guy.' }, options: [{ label: 'Blink twice', next: null }] },
-        } },
+        options: person('Ask about the SIM cards', 'Ask his name') },
       { id: 'inspector', name: 'Baggage Inspector', kind: 'npc', color: '#e4572e', x: 420, y: 800,
         desc: 'Over-zealous official with a clipboard and a very serious moustache.',
-        tree: {
-          start: { text: '"Your bag contains a class-four biohazard."', options: [{ label: 'It\'s a cheese sandwich.', next: 'cheese' }, { label: 'Open the bag', next: 'open' }, LEAVE] },
-          cheese: { text: '"That smell is not a sandwich smell. That is a smell with intentions."', options: [{ label: 'Open the bag', next: 'open' }, LEAVE] },
-          open: { text: 'He sniffs for a long time. "Move along. I will be watching the cheese."', options: [{ label: 'Move along', next: null }] },
-        } },
+        options: person('Open your bag for inspection') },
       { id: 'perfume', name: 'Duty-Free Tester', kind: 'npc', color: '#f078b0', x: 2080, y: 720,
         desc: 'Glitching tester handing out free perfume samples that smell like whatever you want most.',
-        tree: {
-          start: { text: '"Free sample! Smells like what you desire most!"', options: [
-            { label: 'Take a sample (d20, DC 10)', roll: { dc: 10, pass: 'good', fail: 'bad' } }, LEAVE] },
-          good: { text: 'It smells exactly like your heart\'s desire. You stand there a moment too long.', options: [{ label: 'Snap out of it', next: null }] },
-          bad: { text: 'Burnt toast. Unmistakably burnt toast.', options: [{ label: 'Cough politely', next: null }] },
-        } },
+        options: person('Take a free sample') },
       { id: 'locker', name: 'Locker #137', kind: 'object', color: '#9aa7ad', x: 260, y: 720,
         desc: 'A battered locker in the Lost & Found wall. Slightly warm to the touch.',
-        tree: {
-          start: { text: 'The lock looks old, but something about it feels off.', options: [
-            { label: 'Pick the lock / look closely (d20, DC 14)', roll: { dc: 14, pass: 'win', fail: 'fail' } }, LEAVE] },
-          win: { text: 'Inside is a sleek, unlabeled briefcase holding neon-tinted sunglasses. Through them, faint energy signatures shimmer.', fx: { find: 'Neon-Tinted Sunglasses', once: true, log: '{n} found something in Locker #137.' }, options: [{ label: 'Close the locker', next: null }] },
-          fail: { text: 'Nothing but lost umbrellas.', options: [{ label: 'Try again', next: 'start' }, LEAVE] },
-        } },
+        options: thing('Pick the lock') },
       { id: 'bench', name: 'Departure Lounge Bench', kind: 'object', color: '#8da2ad', x: 950, y: 690,
         desc: 'A long bench. Something dented glints underneath.',
-        tree: {
-          start: { text: 'A forgotten souvenir tin sits under the bench.', options: [{ label: 'Open the tin', next: 'tin' }, LEAVE] },
-          tin: { text: 'Unbreakable Stroopwafels: indestructible travel snacks. Good as emergency door wedges.', fx: { find: 'Unbreakable Stroopwafels', once: true, log: '{n} found a souvenir tin.' }, options: [{ label: 'Pocket them', next: null }] },
-        } },
+        options: thing('Look underneath') },
       { id: 'train1', name: 'Train Conductor', kind: 'npc', color: '#ffd24a', x: 2150, y: 1350,
         desc: 'Calm conductor in a bright vest. Moves between worlds in thirty-minute increments.',
         tree: { start: { text: '"Next train: Amsterdam Centraal, then the canal district. All aboard."', options: [{ label: 'Take the train to De Ruisende Gracht', travel: 'canal' }, LEAVE] } } },
@@ -141,53 +107,25 @@ module.exports = {
     npcs: [
       { id: 'bram', name: 'Bartender Bram', kind: 'npc', color: '#e4572e', x: 1250, y: 420,
         desc: 'Broad bartender at The Leaky Sluice, polishing a glass that was clean an hour ago.',
-        tree: {
-          start: { text: '"Bitterballen Roulette! Six bitterballen. One holds the botanist\'s experimental glowing green spice. Beat me at Rock Paper Scissors."', options: [{ label: 'Play', next: 'play' }, LEAVE] },
-          play: { text: 'Choose your throw:', options: RPS('win', 'lose') },
-          win: { text: 'You eat the normal ones. A rival table grabs the spicy one and sprints for the bathroom, dropping a Strange Encrypted Keycard.', fx: { find: 'Strange Encrypted Keycard', once: true, log: '{n} won Bitterballen Roulette.' }, options: [{ label: 'Pocket the keycard', next: null }] },
-          lose: { text: 'You get the glowing one. Severe hiccups: your voice glitches into audible static whenever you lie, for the next 24 hours.', fx: { log: '{n} ate the glowing bitterbal. Hiccups imminent.' }, options: [{ label: 'Hic.', next: null }] },
-        } },
+        options: person('Play Bitterballen Roulette') },
       { id: 'rider', name: 'Smith', kind: 'npc', color: '#d62828', x: 2700, y: 740,
         desc: 'Runs Bikes & Blades Repair Shop and races deliveries around town. Smug, red cap, magnificent moustache, pizza bag strapped to his back.',
-        tree: {
-          start: { text: '"It\'s-a me, Smith! Fastest on the cobblestones. Race me down the alley?"', options: [{ label: 'Race!', next: 'play' }, LEAVE] },
-          play: { text: 'Choose your move:', options: RPS('win', 'lose') },
-          win: { text: 'You outmaneuver him and he drops his delivery bag. Among the pizzas: a bottle of glowing blue Speed-E-Juice.', fx: { find: 'Speed-E-Juice', once: true, log: '{n} won the bike slalom.' }, options: [{ label: 'Grab the bottle', next: null }] },
-          lose: { text: 'You crash into a flower stall. The furious vendor demands compensation: a key item, or a loan debt that will come back to haunt you.', fx: { log: '{n} crashed into a flower stall.' }, options: [{ label: 'Apologize', next: null }] },
-        } },
+        options: person('Race him down the alley') },
       { id: 'zehra', name: 'Madame Zehra', kind: 'npc', color: '#7b6cf6', x: 1900, y: 420,
         desc: 'Shopkeeper among dusty grandfather clocks. Guards a 1980s arcade cabinet: GRID RUNNER.',
-        tree: {
-          start: { text: '"No one has ever beaten the high score. Care to try?"', options: [{ label: 'Challenge the cabinet', next: 'play' }, LEAVE] },
-          play: { text: 'Choose your move against the machine:', options: RPS('win', 'lose') },
-          win: { text: 'The cabinet coughs up a toy plastic wand. Swinging it subtly bends light around the tip.', fx: { find: 'Plastic Wand', once: true, log: '{n} beat GRID RUNNER.' }, options: [{ label: 'Take the wand', next: null }] },
-          lose: { text: 'The machine tilts and flashes blinding ultraviolet. All devices on you lose their battery, except Gart\'s Omni-SIM.', fx: { log: '{n} got UV-flashed by the arcade cabinet.' }, options: [{ label: 'Check your phone', next: null }] },
-        } },
+        options: person('Challenge the arcade cabinet') },
       { id: 'stranger', name: 'Trench Coat Stranger', kind: 'npc', color: '#222', x: 900, y: 990,
         desc: 'Dark coat, small sunglasses, sitting very still by the canal.',
-        tree: {
-          start: { text: '"Red or blue?" He holds out one of each M&M.', options: [{ label: 'Red', next: 'end' }, { label: 'Blue', next: 'end' }, LEAVE] },
-          end: { text: 'He whispers: "The simulation approves of your choice." Something small slides into your pocket.', fx: { find: 'Unfamiliar Fob' }, options: [{ label: 'Check your pocket', next: null }] },
-        } },
+        options: person('Accept a candy') },
       { id: 'barista', name: 'Barista', kind: 'npc', color: '#8c6d4f', x: 580, y: 1560,
         desc: 'Beanie pulled low over something bolt-shaped. The silver espresso funnel hums at an odd frequency.',
-        tree: {
-          start: { text: '"Welcome to The Daily Prophet."', options: [{ label: 'Order an espresso', next: 'order' }, { label: 'Ask about the scar', next: 'scar' }, LEAVE] },
-          order: { text: 'The cup says "Hairy". The espresso is excellent and faintly electric.', options: [{ label: 'Thanks', next: null }] },
-          scar: { text: '"Skiing accident. Obviously."', options: [{ label: 'Of course', next: null }] },
-        } },
+        options: person('Order an espresso') },
       { id: 'guide', name: 'Canal Tour Guide', kind: 'npc', color: '#29b6a8', x: 1075, y: 880,
         desc: 'Cheerful guide with a microphone and a boat that has seen things.',
-        tree: {
-          start: { text: '"Welcome aboard! Mind the ducks."', options: [{ label: 'Anything strange lately?', next: 'rick' }, LEAVE] },
-          rick: { text: '"A strange old man in a lab coat was banned from the tours. Kept shouting about Megalodon-sized portal sharks in the waterways."', options: [{ label: 'Interesting...', next: null }] },
-        } },
+        options: person('Ask if anything strange has happened lately') },
       { id: 'piet', name: 'Piet the Pigeon Whisperer', kind: 'npc', color: '#9aa7ad', x: 1660, y: 1560,
-        desc: 'Sits by the park fountain, surrounded by a very attentive flock of pigeons. (Placeholder: send me his details.)',
-        tree: {
-          start: { text: '"Shh. They are listening. The pigeons know everything that happens on these canals."', options: [{ label: 'What do the pigeons know?', next: 'know' }, LEAVE] },
-          know: { text: '"A man in a lab coat shouts at them every morning. They do not like him. They say he smells like ozone and old soup."', options: [{ label: 'Thanks, Piet', next: null }] },
-        } },
+        desc: 'Sits by the park fountain, surrounded by a very attentive flock of pigeons.',
+        options: person('Ask about the pigeons') },
       { id: 'train2', name: 'Station Attendant', kind: 'npc', color: '#ffd24a', x: 520, y: 280,
         desc: 'Attendant at the canal-side station, holding a timetable that looks slightly wrong.',
         tree: { start: { text: '"Where to?"', options: [
@@ -208,6 +146,7 @@ module.exports = {
       { x: 250, y: 620, w: 500, h: 320, color: '#b8a98c', label: 'EQUIPMENT YARD' },
       { x: 700, y: 1060, w: 450, h: 340, color: '#9cc486' }, { x: 1360, y: 1100, w: 400, h: 400, color: '#a9cf8f' },
       { x: 1900, y: 200, w: 260, h: 240, color: '#a9cf8f' }, { x: 2300, y: 300, w: 360, h: 140, color: '#b8a98c' },
+      { x: 2420, y: 560, w: 60, h: 130, color: '#c9b68c' }, { x: 2380, y: 680, w: 140, h: 100, color: '#b8a98c' },
     ],
     solids: [
       { x: 350, y: 760, w: 90, h: 50, z: 30, color: '#4f6a4a' }, { x: 620, y: 800, w: 70, h: 30, z: 20, color: '#8a3b2c' },
@@ -229,27 +168,30 @@ module.exports = {
       ...trees([[200, 60], [250, 90], [1100, 70], [1160, 100], [1700, 70], [2750, 100], [2720, 220], [2740, 700], [2720, 1100], [80, 500], [60, 720], [80, 1300], [60, 1450], [1000, 1430], [1800, 1550]]),
     ],
     npcs: [
+      { id: 'drunk', name: 'Drunk old man', kind: 'lying', color: '#7d6a8c', x: 2450, y: 730,
+        desc: 'An old man sprawled in a clearing in the middle of the tulips, an empty bottle beside him.',
+        options: person('Check on him') },
       { id: 'bus', name: 'Bus Driver', kind: 'npc', color: '#ffd24a', x: 200, y: 1000,
         desc: 'Leans against a dusty regional bus that does not appear on any timetable.',
         tree: { start: { text: '"Last stop. Mind the tulips. Heading back to town?"', options: [{ label: 'Back to De Ruisende Gracht', travel: 'canal' }, LEAVE] } } },
-      { id: 'depot', name: 'Equipment Depot', x: 520, y: 670, kind: 'object', color: '#c9a24a',
+      { id: 'depot', name: 'Equipment Depot', kind: 'object', color: '#c9a24a', x: 520, y: 670,
         desc: 'A big timber depot with a rolled-down shutter. Rusty farm tools lean against the walls.',
-        tree: look('A big timber depot, its shutter rolled down. Rusty tools and a hay wagon sit in the yard.') },
-      { id: 'tractor', name: 'Broken Tractor', x: 940, y: 1300, kind: 'object', color: '#c9a24a',
+        options: thing('Look inside') },
+      { id: 'tractor', name: 'Broken Tractor', kind: 'object', color: '#c9a24a', x: 940, y: 1300,
         desc: 'A rusted red tractor stuck in an oil-stained patch of grass.',
-        tree: look('A rusted red tractor, long dead. Oil has soaked the grass around it.') },
-      { id: 'dock', name: 'Rustic Dock', x: 1320, y: 1650, kind: 'object', color: '#c9a24a',
+        options: thing('Inspect the engine') },
+      { id: 'dock', name: 'Rustic Dock', kind: 'object', color: '#c9a24a', x: 1320, y: 1650,
         desc: 'A weathered wooden dock with a lantern post and a small rowboat tied up.',
-        tree: look('A weathered dock. A lantern swings from its post and a rowboat bobs below.') },
-      { id: 'windmill', name: 'Historic Windmill', x: 2030, y: 400, kind: 'object', color: '#c9a24a',
+        options: thing('Check the rowboat') },
+      { id: 'windmill', name: 'Historic Windmill', kind: 'object', color: '#c9a24a', x: 2030, y: 400,
         desc: 'An old wooden windmill, its sails turning slowly.',
-        tree: look('The windmill creaks as its sails turn. A small door sits at its base.') },
-      { id: 'barn', name: 'Barn?', x: 2480, y: 340, kind: 'object', color: '#c9a24a',
+        options: thing('Go inside') },
+      { id: 'barn', name: 'Barn?', kind: 'object', color: '#c9a24a', x: 2480, y: 340,
         desc: 'A moss-covered building that looks like a barn. Mostly.',
-        tree: look('A moss-covered barn with its doors firmly shut. Something about it does not quite add up.') },
-      { id: 'tulips', name: 'Tulip Fields', x: 1700, y: 520, kind: 'object', color: '#c9a24a',
+        options: thing('Try the door') },
+      { id: 'tulips', name: 'Tulip Fields', kind: 'object', color: '#c9a24a', x: 1700, y: 520,
         desc: 'Endless stripes of purple, pink and blue tulips.',
-        tree: look('Rows of purple, pink and blue tulips run all the way to the horizon.') },
+        options: thing('Search the rows') },
     ],
   },
 };
