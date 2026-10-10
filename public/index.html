@@ -32,8 +32,7 @@ button:focus-visible{outline:3px solid var(--accent)}
 <aside>
   <div><h2>Party</h2><div id="players"></div></div>
   <div><h2>Conversation</h2><div id="panel">Click the ground to walk. Click a character or object when you are close.</div></div>
-  <div><h2>Your bag</h2><div id="bag">empty</div></div>
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0"><h2>News &amp; rolls</h2><div id="log"></div></div>
+  <div style="display:flex;flex-direction:column;flex:1;min-height:0"><h2>Party feed</h2><div id="log"></div></div>
 </aside>
 <div id="join"><form id="jf"><b>Join the party</b>
   <input id="nm" maxlength="16" placeholder="Character name" autofocus required>
@@ -65,7 +64,6 @@ function handle(m) {
     $('panel').querySelectorAll('button').forEach(b => b.onclick = () => tx({ t: 'pick', i: +b.dataset.i }));
   }
   if (m.t === 'end') endChat();
-  if (m.t === 'inv') $('bag').innerHTML = Object.entries(m.inv).map(([k, v]) => esc(k) + (v > 1 ? ' ×' + v : '')).join('<br>') || 'empty';
   if (m.t === 'log' || m.t === 'notice') addLog(m.text);
 }
 const endChat = () => $('panel').textContent = 'Click the ground to walk. Click a character or object to walk over and talk.';
@@ -144,6 +142,16 @@ function person(x, y, col, name, me) {
   ctx.fillStyle = '#f1d3b5'; ctx.beginPath(); ctx.arc(sx, sy - 33, 7, 0, 7); ctx.fill(); ctx.stroke();
   lbl(name, sx, sy - 47);
 }
+function lying(n) { // someone sleeping it off on the ground, bottle beside them
+  const [sx, sy] = P(n.x, n.y);
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx, sy + 2, 34, 11, 0, 0, 7); ctx.fill();
+  box(n.x - 46, n.y - 6, 24, 12, 7, '#4a4358');   // legs
+  box(n.x - 24, n.y - 9, 34, 18, 10, n.color);    // torso
+  box(n.x + 28, n.y + 14, 7, 7, 14, '#3b7a3b');   // dropped bottle
+  const [hx, hy] = P(n.x + 18, n.y, 10);
+  ctx.fillStyle = '#f1d3b5'; ctx.strokeStyle = '#1d2a2f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 8, 0, 7); ctx.fill(); ctx.stroke();
+  lbl(n.name, sx, sy - 34); lbl('z z z', hx + 6, hy - 14, 11);
+}
 function plane(d) {
   box(d.x, d.y, d.len, 36, 38, '#e8eef2');                 // fuselage
   box(d.x + d.len * .4, d.y - 90, 70, 216, 6, '#cfd8dc');  // wings
@@ -186,7 +194,9 @@ function drawIso() {
   }
   for (const n of map.npcs) E.push({ x0: n.x, x1: n.x, y0: n.y, y1: n.y, draw: () => {
     const [sx, sy] = P(n.x, n.y); hits.push({ n, sx, sy: sy - 15 });
-    if (n.kind === 'object') { box(n.x - 12, n.y - 12, 24, 24, 14, n.color); lbl(n.name, ...P(n.x, n.y, 28)); } else person(n.x, n.y, n.color, n.name, false);
+    if (n.kind === 'object') { box(n.x - 12, n.y - 12, 24, 24, 14, n.color); lbl(n.name, ...P(n.x, n.y, 28)); }
+    else if (n.kind === 'lying') lying(n);
+    else person(n.x, n.y, n.color, n.name, false);
   } });
   for (const p of Object.values(players)) if (p.map === map.key) { const s = shown[p.id]; E.push({ x0: s.x, x1: s.x, y0: s.y, y1: s.y, draw: () => person(s.x, s.y, p.color, p.name, p.id === myId) }); }
   labels = []; E.sort(cmp); E.forEach(e => e.draw());
